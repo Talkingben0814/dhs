@@ -1,4 +1,3 @@
-
 if (not game:IsLoaded()) then 
 	game.Loaded:Wait()
 	task.wait(2)
@@ -739,74 +738,15 @@ local function convert_to_hms(seconds)
 end
 
 
-local function saveUserData(userid, walletValue, profitValue, elapsedTime, timestamp)
-    local userFolder = "userdata/"..userid
-    if not isfolder("userdata") then makefolder("userdata") end
-    if not isfolder(userFolder) then makefolder(userFolder) end
 
-    local data = string.format("%s,%s,%s", walletValue, profitValue, elapsedTime)
-    writefile(userFolder.."/data.txt", data)
-    writefile(userFolder.."/timestamp.txt", tostring(timestamp))
-end
 
-local function loadUserData(userid)
-    local userFolder = "userdata/"..userid
-    if not isfolder(userFolder) then return nil end
-    if not isfile(userFolder.."/data.txt") or not isfile(userFolder.."/timestamp.txt") then return nil end
-
-    local lastSave = tonumber(readfile(userFolder.."/timestamp.txt"))
-    if not lastSave or (tick() - lastSave > 180) then return nil end
-
-    local data = readfile(userFolder.."/data.txt")
-    local wallet, profit, elapsed = string.match(data, "([^,]+),([^,]+),([^,]+)")
-    return tonumber(wallet), tonumber(profit), tonumber(elapsed)
-end
-
--- Get user ID
-local LocalPlayer = game:GetService("Players").LocalPlayer
-local id = tostring(LocalPlayer.UserId)
-
--- Try to load previous data
-local walletValue, profitValue, savedElapsed = loadUserData(id)
-
--- Fallback if no data
-walletValue = walletValue or data_folder.Currency.Value
-profitValue = profitValue or 0
-savedElapsed = savedElapsed or 0
-
--- Set starting values
-startingcash = walletValue - profitValue
-timeelapsed = tick() - savedElapsed
-
--- Auto-save every second
-task.spawn(function()
-    while task.wait(1) do
-        local elapsedTime = tick() - timeelapsed
-        saveUserData(id, data_folder.Currency.Value, data_folder.Currency.Value - startingcash, elapsedTime, tick())
-    end
-end)
-
--- GUI updates
-task.spawn(function()
-    while task.wait(0.25) do
-        pcall(function()
-            G2L["16"].Text = "$"..format(data_folder.Currency.Value)
-        end)
-    end
-end)
 
 task.spawn(function()
-    while task.wait(0.25) do
-        pcall(function()
-            G2L["12"].Text = "$"..format(data_folder:WaitForChild("Currency").Value - startingcash)
-        end)
-    end
-end)
-
-task.spawn(function()
-    while task.wait(0.25) do
+    while task.wait(1.5) do
         pcall(function()
             G2L["e"].Text = tostring(convert_to_hms(math.floor(tick() - timeelapsed)))
+            G2L["12"].Text = "$"..format(data_folder:WaitForChild("Currency").Value - startingcash)
+            G2L["16"].Text = "$"..format(data_folder.Currency.Value)
         end)
     end
 end)
@@ -1501,31 +1441,16 @@ local function koPlayer(characterToKO)
     end)
 end
 
-task.spawn(function()
-	while task.wait(0.25) do
-		task.wait(1)
 
-		local playerBlock = workspace:FindFirstChild("Players")
-			and workspace.Players:FindFirstChild("StormyBeastBear")
-			and workspace.Players.StormyBeastBear:FindFirstChild("BodyEffects")
-			and workspace.Players.StormyBeastBear.BodyEffects:FindFirstChild("Block")
-
-		if not playerBlock then
-			local success, err = pcall(function()
-				game.ReplicatedStorage:WaitForChild("MainEvent"):FireServer("Block", true)
-			end)
-
-		end
-	end
-end)
 local runATMGrind = false
 local atmTask = nil
+
 
 function StartATMGrind()
     if runATMGrind then return end -- Prevent multiple loops
     runATMGrind = true
     atmTask = task.spawn(function()
-        while true and task.wait(0.2) do 
+        while true and task.wait(1) do 
             if Player.Character then
                 local startTime = tick()
                 local bodyeffects = Player.Character:WaitForChild("BodyEffects")
@@ -1617,8 +1542,22 @@ function StartATMGrind()
                     log("Breaking ATM")
                     Attack()
                 until Cashier.Humanoid.Health <= 0 or bodyeffects:WaitForChild("Cuff").Value == true or tick() - startTime > 8
-                startTime = tick()
+                
+                local MAX_CASH_PICKUP_TIME = 5
+                local cashPickupStart = tick()
+
                 repeat 
+
+                    if tick() - cashPickupStart > MAX_CASH_PICKUP_TIME then
+                        log("Cash pickup timeout - moving on")
+                        break
+                    end
+                    
+                    if not Player.Character or not Player.Character:FindFirstChild("Humanoid") or Player.Character.Humanoid.Health <= 0 then
+                        break
+                    end
+
+
                     for i, v in pairs(workspace.Ignored.Drop:GetChildren()) do 
                         if v.Name == "MoneyDrop" then
                             local clickDetector = v:FindFirstChild("ClickDetector")
@@ -1633,7 +1572,7 @@ function StartATMGrind()
                         end
                     end
                     task.wait(0.25)
-                until GetCash() <= 0 or bodyeffects:WaitForChild("Cuff").Value == true or tick() - startTime > 8
+                until GetCash() <= 0 or bodyeffects:WaitForChild("Cuff").Value == true
 
 
                 Cashier = nil
@@ -1663,7 +1602,7 @@ LocalPlayer.CharacterAdded:Connect(function()
 end)
 
 task.spawn(function()
-	while true and task.wait(0.5) do 
+	while true and task.wait(1) do 
 		for i,v in pairs(Cashiers:GetChildren()) do 
 			if (i == 15) then 
 				v:MoveTo(Vector3.new(-621.948, 24, -286.52))
